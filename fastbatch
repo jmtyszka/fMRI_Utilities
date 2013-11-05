@@ -1,0 +1,63 @@
+#!/bin/sh
+#
+# fastbatch
+#
+# Perform FAST tissue segmentation on a set of T1 volumes
+#
+# SYNTAX: fastbatch <T1 brain images>
+#
+# AUTHOR: Mike Tyszka
+# PLACE : Caltech
+# DATES : 03/25/2009 JMT From scratch
+#         05/04/2009 JMT Add species argument
+#         11/23/2009 JMT Adapt for FAST segmentation
+
+if [ $# -lt 1 ]
+then
+  echo "SYNTAX: fastbatch <T1 brain images>"
+  exit
+fi
+
+echo "----------------------------"
+echo " FAST Batch Segmentation       "
+echo "----------------------------"
+
+# Global FAST options
+# -t 1 : Single T1 source
+# -n 3 : 3 compartments (GM, WM, CSF)
+# -B   : output bias corrected image
+# -p   : output individual probability maps
+fast_opts='-t 1 -n 3 -B -p'
+
+# FAST script
+fast_script=fast.sh
+if [ -f $fast_script ]; then
+  echo Removing old FAST script
+  rm -rf $fast_script
+fi
+
+# Log directory
+log_dir=logs
+if [ -d $log_dir ]; then
+  echo Removing existing log directory: $log_dir
+  rm -rf $log_dir
+fi
+
+#
+# Loop over all input files
+#
+
+for f in $@
+do
+  
+  # Add fast command to batch script
+  echo "fast $fast_opts $f" >> $fast_script
+
+done
+
+# Submit warp batch to SGE
+fastid=`fsl_sub -q short.q -l $log_dir -t $fast_script`
+echo FAST segmentation batch submitted: $fastid
+
+cleanid=`fsl_sub -q short.q -j $fastid -l $log_dir "rm -rf *_seg* *_mix* ${fast_script}"`
+echo Clean job submitted: $cleanid

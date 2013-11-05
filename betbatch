@@ -1,0 +1,63 @@
+#!/bin/sh
+#
+# betbatch
+#
+# Perform BET brain extraction on multiple T1s
+#
+# SYNTAX: betbatch <T1 brain images>
+#
+# AUTHOR: Mike Tyszka
+# PLACE : Caltech
+# DATES : 03/15/2013 JMT Adapt from betbatch
+
+if [ $# -lt 1 ]
+then
+  echo "SYNTAX: betbatch <T1 brain images>"
+  exit
+fi
+
+echo "----------------------------"
+echo " BET Batch"
+echo "----------------------------"
+
+# Global BET options 
+# -R : robust center
+# -S : eye/optic nerve cleanup
+# -B : bias/neck cleanup
+bet_opts='-R -S -B'
+
+# BET script
+bet_script=bet.sh
+if [ -f $bet_script ]; then
+  echo Removing old BET script
+  rm -rf $bet_script
+fi
+
+# Log directory
+log_dir=logs
+if [ -d $log_dir ]; then
+  echo Removing existing log directory: $log_dir
+  rm -rf $log_dir
+fi
+
+#
+# Loop over all input files
+#
+
+for f in $@
+do
+
+  # File stub
+  stub=${f%%.nii.gz}
+  
+  # Add bet command to batch script
+  echo "bet ${stub} ${stub}_brain $bet_opts" >> $bet_script
+
+done
+
+# Submit warp batch to SGE
+betid=`fsl_sub -q short.q -l $log_dir -t $bet_script`
+echo BET batch submitted: $betid
+
+cleanid=`fsl_sub -q short.q -j $betid -l $log_dir "rm -rf *_seg* *_mix* ${bet_script}"`
+echo Clean job submitted: $cleanid

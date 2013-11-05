@@ -1,0 +1,34 @@
+#!/bin/bash
+#
+# Extract slice order from Siemens DICOM header
+#
+# AUTHOR : Mike Tyszka, Ph.D.
+# PLACE  : Caltech
+# DATES  : 05/31/2012 JMT Adapt info from yale-lccn wiki for freesurfer tools
+
+# Check for empty arguments
+if [ $# -lt 1 ]; then
+  echo "USAGE : get_slice_order <Siemens DICOM File>"
+  exit
+fi
+
+dc=$1
+
+# Get slice order code from header - this only works for Siemens DICOM headers
+order=`mri_probedicom --i $1 | grep sSliceArray.ucMode | awk '{print $3}'`
+
+# Display slice order meaning
+case "$order" in
+  0x1)
+    echo "Sequential Ascending"
+    ;;
+  0x2)
+    echo "Sequential Descending"
+    ;;
+  0x4)
+    echo "Interleaved"
+    ;;
+  *)
+    echo "Unknown slice order code"
+    ;;
+esac

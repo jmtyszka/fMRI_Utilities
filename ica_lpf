@@ -1,0 +1,62 @@
+#!/bin/bash
+#
+# Low pass filter a 4D BOLD dataset using ICA with posthoc GLM regression
+# of high-frequency ICs
+#
+# Assumes FEAT preprocessing has been run on raw 4D BOLD EPI with exploratory
+# ICA selected (generates .ica subdir of .feat directory)
+#
+# USAGE: ica_lpfilt <list of .feat directories>
+#
+# Calls melodic and fsl_regfilt (FSL 5x)
+#
+# AUTHOR : Mike Tyszka
+# PLACE  : Caltech
+# DATES  : 08/16/2013 JMT From scratch
+#
+# Copyright 2013 California Institute of Technology
+# All rights reserved.
+
+# FSL commands
+fsl_regfilt_cmd=/usr/local/fsl/bin/fsl_regfilt
+
+for feat_dir in $@
+do
+
+  if [ ! -d ${feat_dir} ]; then
+
+    echo "${feat_dir} does not exist - skipping"
+
+  else
+
+    echo "Processing ${feat_dir}"
+
+    # Filtered functional 4D Nifti data for this subject
+    filt_data=${feat_dir}/filtered_func_data.nii.gz
+
+    # ICA results directory
+    ica_dir=${feat_dir}/filtered_func_data.ica
+
+    # LP filtered 4D output filename
+    icalpf_data=${feat_dir}/icalpf_func_data.nii.gz
+
+    # Log gile
+    log_file=${feat_dir}/icalpf.log
+
+    if [ ! -d ${ica_dir} ]; then
+
+      echo "${ica_dir} does not exist - skipping"
+
+    else
+
+      # Melodic mixing matrix
+      mix_mat=${ica_dir}/melodic_mix
+
+      echo "Low pass ICA frequency filtering"
+      ${fsl_regfilt_cmd} -i ${filt_data} -d ${mix_mat} -o ${icalpf_data} -F -v --debug &> ${log_file}
+
+    fi
+
+  fi
+
+done

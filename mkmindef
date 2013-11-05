@@ -1,0 +1,221 @@
+# mkmindef <root_dir> <npass> <warpres>
+#
+# Create a minimum deformation template from a set of 3D images in <root_dir>/pass0
+# Final template will be in approximate alignment with MNI
+#
+# ARGS:
+# root_dir = root directory containing pass directories 
+# npass = number of warp iterations [3]
+# warpres = warp resolution in mm [10]
+#
+# AUTHOR: Mike Tyszka, Ph.D.
+# PLACE : Caltech
+# DATES : 03/23/2009 JMT From scratch
+#         04/30/2009 JMT Add support for BNL mouse template
+#         10/07/2009 JMT Remove species support (humans only!)
+#         03/03/2010 JMT Add warpres command line arg
+#         09/13/2010 JMT Switch to full fnirt at each level - results in 
+#
+# Copyright 2010 California Institute of Technology
+# All rights reserved.
+
+# Initial reference template
+template=/usr/local/fsl/data/standard/MNI152_T1_2mm.nii.gz
+
+# Handle default arguments
+if [ $# -lt 1 ]
+then
+  echo "SYNTAX: mkmindef <root_dir> <npass> <warpres>"
+  exit
+else
+  root_dir_rel=$1
+fi
+
+if [ $# -lt 2 ]
+then
+  npass=4
+else
+  npass=$2
+fi
+
+if [ $# -lt 4 ]
+then
+  warpres=10
+else
+  warpres=$3
+fi
+
+# Relative to absolute path for root directory
+root_dir=`python -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' ${root_dir_rel}`
+echo "Converted $root_dir_rel to $root_dir"
+
+echo -----------------------------
+echo Creating mindef atlas
+echo -----------------------------
+echo Root directory   : $root_dir
+echo Number of passes : $npass
+echo Warp resolution  : $warpres
+echo -----------------------------
+
+# Full path to FSL commands
+flirt_cmd=${FSLDIR}/bin/flirt
+fnirt_cmd=${FSLDIR}/bin/fnirt
+bet_cmd=${FSLDIR}/bin/bet
+fslmerge_cmd=${FSLDIR}/bin/fslmerge
+fslmaths_cmd=${FSLDIR}/bin/fslmaths
+
+# Location of pass0 T1 images (both with skull and skull stripped versions)
+pass0_dir=${root_dir}/pass0
+
+# Initialize pass count
+pass=1
+
+# Previous job id (use dummy for first pass
+prev_id=-1
+
+# FLIRT options
+flirt_opts="-searchrx -180 180 -searchry -180 180 -searchrz -180 180 -v"
+
+# FNIRT options
+# Switch to Remya's 6 pass approach
+
+subsamp="--subsamp=4,2,1,1"
+miter="--miter=5,5,5,5"
+infwhm="--infwhm=6,4,2,1"
+reffwhm="--reffwhm=4,2,0,0"
+warpres="--warpres=$warpres,$warpres,$warpres"
+
+fnirt_opts="$subsamp $miter $infwhm $reffwhm $lambda $estint $warpres"
+
+# Normalize intensities of all images
+echo Normalizing intensities to 1000 at 99th percentile
+normintensity ${pass0_dir}/*.nii.gz
+
+#
+# PASS LOOP
+#
+
+while [ $pass -le $npass ]
+do
+
+  echo "*****************"
+  echo "Pass $pass"
+  echo "Previous batch id = $prev_id"
+  echo "*****************"
+
+  # Pass directory
+  pass_dir=${root_dir}/pass${pass}
+
+  # Create output directory if necessary
+  if [ ! -d $pass_dir ]; then
+    echo Creating $pass_dir
+    mkdir -p $pass_dir
+  fi
+
+  # Create log directory for this pass
+  log_dir=${pass_dir}/logs
+  if [ -d $log_dir ]; then
+    echo Removing previous log directory
+    rm -rf $log_dir
+  fi
+
+  if [ ! -d $log_dir ]; then
+    echo Creating new log directory
+    mkdir -p $log_dir
+  fi
+
+  # Create affine registration script for this pass
+  affine_script=${pass_dir}/affine_reg.sh
+  if [ -f $affine_script ]; then
+    echo Removing old affine script
+    rm -rf $affine_script
+  fi
+
+  # Create warp registration script for this pass
+  warp_script=${pass_dir}/warp_reg.sh
+  if [ -f $warp_script ]; then
+    echo Removing old warp script
+    rm -rf $warp_script
+  fi
+
+  #
+  # Loop over all pass0 whole-head images
+  #
+
+  for f in ${pass0_dir}/*.nii.gz
+  do
+
+    # Strip directory path, then extensions (.nii.gz)
+    fstub=${f##*/}; fstub=${fstub%%.*}
+
+    #
+    # Construct affine registration script
+    #
+
+    # Filename of whole head image affine registered to current template
+    affine_name=${pass_dir}/${fstub}_affine.nii.gz
+
+    # Add flirt command to batch script
+    echo "$flirt_cmd -ref ${template} -in ${f} -out ${affine_name} ${flirt_opts}" >> $affine_script
+
+    # Output filenames
+    iout=${pass_dir}/${fstub}_warp.nii.gz
+    jout=${pass_dir}/${fstub}_jac.nii.gz
+    fout=${pass_dir}/${fstub}_field.nii.gz
+    cout=${pass_dir}/${fstub}_coeff.nii.gz
+
+    # Add fnirt command to batch script
+    echo "$fnirt_cmd --in=${affine_name} --ref=${template} --iout=${iout} --jout=${jout} --fout=${fout} --cout=${cout} ${warp_opts}" >> ${warp_script}
+
+    # Add output images to file list (for merger)
+    warp_files=`echo $warp_files $iout`
+    jac_files=`echo $jac_files $jout`
+    field_files=`echo $field_files $fout`
+
+  done
+
+  # Submit affine registration batch to SGE
+  if [ $prev_id -lt 0 ]; then
+    echo "First affine pass - no previous job"
+    affine_id=`fsl_sub -l $log_dir -t $affine_script`
+  else
+    echo Later affine pass - waiting for job $prev_id
+    affine_id=`fsl_sub -j $prev_id -l $log_dir -t $affine_script`
+  fi
+  echo Affine registration batch submitted: $affine_id
+
+  # Submit warp registration batch to SGE
+  warp_id=`fsl_sub -l $log_dir -j $affine_id -t $warp_script`
+  echo Warp registration batch submitted: $warp_id dep $affine_id
+
+  # Merge warped files and take mean
+  warp_merge_file=${pass_dir}/warp_merge.nii.gz
+  warp_merge_id=`fsl_sub -l $log_dir -j $warp_id "$fslmerge_cmd -t ${warp_merge_file} ${warp_files}"`
+  echo Warp merge job submitted: $warp_merge_id dep $warp_id
+
+  # Calculate group mean
+  warp_mean_file=${pass_dir}/warp_mean.nii.gz
+  warp_mean_id=`fsl_sub -l $log_dir -j $warp_merge_id "$fslmaths_cmd ${warp_merge_file} -Tmean $warp_mean_file"`
+  echo Mean job submitted: $warp_mean_id dep $warp_merge_id
+
+  warp_clean_id=`fsl_sub -l $log_dir -j $warp_mean_id "rm -rf ${warp_merge_file}"`
+  echo Clean job submitted: $warp_clean_id dep $warp_mean_id
+
+  # Increment pass counter
+  pass=`expr $pass + 1`
+
+  # Update the job id to wait for at the start of the next pass
+  prev_id=${warp_clean_id}
+
+  # Update the reference image for the next pass
+  template=${warp_mean_file}
+
+done # Elastic registration loop
+
+# Post final pass
+# - calculate mean jacobian and displacement field for final pass
+
+echo Creating mindef.nii.gz and mindef_brain.nii.gz in root directory
+cp_id=`fsl_sub -l $log_dir -j $prev_id "cp ${pass_dir}/warp_mean.nii.gz ${root_dir}/mindef.nii.gz"`
+bet_id=`fsl_sub -l $log_dir -j $cp_id "$bet_cmd ${root_dir}/mindef ${root_dir}/mindef_brain -S -B -m -v"`
+
