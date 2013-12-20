@@ -2,57 +2,68 @@
 #
 # Simulate long-TE dropout in a short-TE GRE image
 # - designed to be run on the magnitude image of a fieldmap
-# - requires numpy and pynifti
+# - requires numpy and nibabel
+# - written under Python 2.7
 #
 # USAGE : dropout.py <fmap mag nifti> <fmap nifti> <TE>
 #
-# ARGS :
-# <fmap mag nifti> - Nifti-1 fieldmap magnitude image filename [fmap_mag.nii.gz]
-# <fmap nifti>     - Nifti-1 fieldmap (in rad/s) image filename [fmap.nii.gz]
+# ARGS
+# <fmap mag nifti> - Nifti-1 fieldmap magnitude image filename
+# <fmap nifti>     - Nifti-1 fieldmap (in rad/s) image filename
 # <TE>             - new effective TE in ms for dropout calculation [30 ms]
 #
 # AUTHOR : Mike Tyszka
 # PLACE  : Caltech
 # DATES  : 12/13/2013 JMT From scratch
 #          12/16/2013 JMT Switch to spherical dephasing model, add command line args
+#          12/17/2013 JMT Remove default image filenames
+#          12/19/2013 JMT Switch to NiBabel
+#
+# This file is part of fMRI_Utilities.
+#
+#    fMRI_Utilities is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    fMRI_Utilities is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#   along with CBICQA.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Copyright 2013 California Institute of Technology.
-# All rights reserved.
 
 import sys
 import os
 import numpy as np
-from nifti import *
+import nibabel as nib
 
 USAGE = """
 USAGE :
   dropout.py <fmap mag nifti> <fmap nifti> <TE>
 
 ARGS :
-  <fmap mag nifti> - Nifti-1 fieldmap magnitude image filename [fmap_mag.nii.gz]
-  <fmap nifti>     - Nifti-1 fieldmap (in rad/s) image filename [fmap.nii.gz]
-  <TE>             - new effective TE in seconds for dropout calculation [0.030 s]
+  <fmap mag nifti> - Nifti-1 fieldmap magnitude image filename
+  <fmap nifti>     - Nifti-1 fieldmap (in rad/s) image filename
+  <TE>             - new effective TE in ms for dropout calculation [30 ms]
 """
 
 # Main function
 def main():
 
   # Command line args
-  if len(sys.argv) < 1:
+  if len(sys.argv) < 3:
     print(USAGE)
-    
-  if len(sys.argv) < 2:
-    fmap_mag_file = 'fmap_mag.nii.gz'
+    sys.exit()
   else:
     fmap_mag_file = sys.argv[1]
-
-  if len(sys.argv) < 3:
-    fmap_file = 'fmap.nii.gz'
-  else:
     fmap_file = sys.argv[2]
 
   # Simulated echo time in seconds
-  if len(sys.argv) < 4:
+  if len(sys.argv) < 5:
     TE = 30.0
   else:
     TE = float(sys.argv[3]) / 1000.0
@@ -63,6 +74,8 @@ def main():
   else:
     if '.nii' in fmap_mag_file:
       dropout_file = fmap_mag_file[:-4]
+    else:
+      dropout_file = fmap_mag_file
 
   # Complete output filename
   dropout_file = dropout_file + '_dropout.nii.gz'
@@ -83,12 +96,12 @@ def main():
   
   print('  Loading phase image from ' + fmap_file)
   try:
-    nim_phi = NiftiImage(fmap_file)
+    nim_phi = nib.load(fmap_file)
   except:
     sys.exit()
 
-  # Get phase data from Nifti object
-  phi = nim_phi.getScaledData()
+  # Get phase data from Niftidd object
+  phi = nim_phi.get_data()
 
   # Calculate grad(phi). Returns numpy array
   print('  Calculating grad(phi)')
@@ -106,24 +119,23 @@ def main():
 
   print('  Loading magnitude image from ' + fmap_mag_file)
   try:
-    nim_M = NiftiImage(fmap_mag_file)
+    nim_M = nib.load(fmap_mag_file)
   except:
     sys.exit()
 
   # Get mag data from Nifti object
-  M = nim_M.getScaledData()
+  M = nim_M.get_data()
     
   # Adjust TE of magnitude image
   print('  Applying weight to magnitude image')
   M_dropout = M * w
 
-  # Calculate long-TE mag image
-  nim_M_dropout = nim_M
-  nim_M_dropout.setDataArray(M_dropout)
+  # Construct output image - same affine transform as original mag image
+  nim_M_dropout = nib.Nifti1Image(M_dropout, nim_M.get_affine())
 
   # Save long-TE mag image
   print('  Saving TE adjusted magnitude image to ' + dropout_file)
-  nim_M_dropout.save(dropout_file)
+  nim_M_dropout.to_filename(dropout_file)
 
   print('Done')
   print('')
