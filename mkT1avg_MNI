@@ -1,7 +1,6 @@
 #!/bin/bash
 #
-# Use FSL and Freesurfer commands to 1. convert DICOM volumes to Nifti, then rigid body coregister volumes and average
-# This script should be run in the directory containing the two or more DICOM T1 scan directories
+# Create average T1 registered to MNI space from multiple T1 volumes
 #
 # SYNTAX: mkT1avg <Output Stub> <DICOM directory list>
 # EXAMPLE:
@@ -21,20 +20,15 @@ shift
 # Loop over all remaining arguments
 nim=0
 
-for dcm_dir in "$@"
+for arg in "$@"
 do
-  out_file=${dcm_dir}.nii.gz
-  echo "Converting $dcm_dir to $out_file"
-  let "nim+=1"
-  dc2nii $dcm_dir $out_file
+	echo "Converting $arg"
+	let "nim+=1"
+	dc2nii $arg $arg
 done
 
 echo "Processed $nim images"
 
 # Now flirt average the converted images
 echo "flirt_average $nim $@ $stub"
-flirt_average $nim $@ $stub -v
-
-# Delete intermediate images
-echo "Deleting intermediate images"
-imrm $@
+flirt_average $nim $@ $stub -FAref ${FSLDIR}/data/standard/MNI152_T1_2mm

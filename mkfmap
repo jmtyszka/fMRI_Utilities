@@ -22,55 +22,56 @@
 # This is standard for most Adolphslabs protocols but should be checked
 TE=2.46
 
-if [ $# -ne 2 ]
+if [ $# -ne 3 ]
 then
-  echo "USAGE: mkfmap <mag_dir> <phase_dir>"
+  echo "USAGE: mkfmap <mag directory> <phase directory> <output directory>"
   exit
 fi
 
 magdir=$1
 phidir=$2
-fmapdir=`pwd`
+outdir=$3
 
 echo Magnitude directory : $magdir
 echo Phase directory     : $phidir
+echo Output directory    : $outdir
 
 # Convert dual-echo GRE DICOM series to Nifti using mri_convert
 echo Converting magnitude images
-mri_convert $1 -i `ls ${magdir}/* | tail -n 1` -o ${fmapdir}/fmap_mag.nii.gz
+mri_convert $1 -i `ls ${magdir}/* | tail -n 1` -o ${outdir}/fmap_mag.nii.gz
 
 # Average first and 2nd echoes
 echo Averaging first and second echo
-fslmaths ${fmapdir}/fmap_mag -Tmean ${fmapdir}/fmap_mag
+fslmaths ${outdir}/fmap_mag -Tmean ${outdir}/fmap_mag
 
 # Skull strip mag image
 echo Extract magnitude brain
-bet ${fmapdir}/fmap_mag ${fmapdir}/fmap_mag_brain
+bet ${outdir}/fmap_mag ${outdir}/fmap_mag_brain
 
 echo Converting phase images
-mri_convert $2 -i `ls ${phidir}/* | tail -n 1` -o ${fmapdir}/phi.nii.gz
+mri_convert $2 -i `ls ${phidir}/* | tail -n 1` -o ${outdir}/phi.nii.gz
 
 # Scale phase image to radians
-fslmaths ${fmapdir}/phi -sub 2048 -mul 3.1415926 -div 2048 ${fmapdir}/phi_rad -odt float
+fslmaths ${outdir}/phi -sub 2048 -mul 3.1415926 -div 2048 ${outdir}/phi_rad -odt float
 
 # Run PRELUDE phase unwrapping with magnitude trust region
 echo Phase unwrapping fieldmap
-prelude -a ${fmapdir}/fmap_mag -p ${fmapdir}/phi_rad -o ${fmapdir}/phi_rad_uw
+prelude -a ${outdir}/fmap_mag -p ${outdir}/phi_rad -o ${outdir}/phi_rad_uw
 
 # Scale unwrapped field map to rad/s
-fslmaths ${fmapdir}/phi_rad_uw -mul 1000 -div $TE ${fmapdir}/fmap -odt float
+fslmaths ${outdir}/phi_rad_uw -mul 1000 -div $TE ${outdir}/fmap -odt float
 
 # Regularize fieldmap
 echo Regularizing fieldmap
-fugue --loadfmap=${fmapdir}/fmap -m --savefmap=${fmapdir}/fmap
-fugue --loadfmap=${fmapdir}/fmap -s 1 --savefmap=${fmapdir}/fmap
+fugue --loadfmap=${outdir}/fmap -m --savefmap=${outdir}/fmap
+fugue --loadfmap=${outdir}/fmap -s 1 --savefmap=${outdir}/fmap
 
 # Reorient to MNI
 echo Reorienting to MNI
-fslreorient2std ${fmapdir}/fmap ${fmapdir}/fmap
-fslreorient2std ${fmapdir}/fmap_mag ${fmapdir}/fmap_mag
-fslreorient2std ${fmapdir}/fmap_mag_brain ${fmapdir}/fmap_mag_brain
+fslreorient2std ${outdir}/fmap ${outdir}/fmap
+fslreorient2std ${outdir}/fmap_mag ${outdir}/fmap_mag
+fslreorient2std ${outdir}/fmap_mag_brain ${outdir}/fmap_mag_brain
 
 # Cleanup
 echo Cleaning up
-rm -rf ${fmapdir}/mag.nii.gz ${fmapdir}/phi*.nii.gz
+rm -rf ${outdir}/mag.nii.gz ${outdir}/phi*.nii.gz
