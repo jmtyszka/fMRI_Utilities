@@ -125,15 +125,23 @@ def main():
 
   # Get mag data from Nifti object
   M = nim_M.get_data()
+
+  # Create signal mask from mag data
+  # Use 10% of 99th percentile as threshold
+  p99 = np.percentile(M, 99)
+  M_mask = (M > p99 * 0.1).astype(int) 
     
   # Adjust TE of magnitude image
   print('  Applying weight to magnitude image')
   M_dropout = M * w
 
-  # Construct output image - same affine transform as original mag image
+  # Create signal masked dropout weight image
+  w_mask = w * M_mask
+
+  # Construct TE-adjusted mag output image - same affine transform as original mag image
   nim_M_dropout = nib.Nifti1Image(M_dropout, nim_M.get_affine())
 
-  # Save long-TE mag image
+  # Save TE-adjusted mag image
   print('  Saving TE adjusted magnitude image to ' + dropout_file)
   nim_M_dropout.to_filename(dropout_file)
 

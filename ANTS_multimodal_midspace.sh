@@ -9,4 +9,4 @@
 # Get command line args
 image_list=$@
 
-ANTS_buildmmtemplateparallel.sh -d 3 -k 2 -r 1 -o MIDSPACE_ ${image_list}
+ANTS_buildmmtemplateparallel.sh -d 3 -k 2 -o MIDSPACE_ ${image_list}

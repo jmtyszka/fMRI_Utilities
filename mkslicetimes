@@ -1,0 +1,48 @@
+#!/bin/bash
+#
+# Create a slice times file directly from a DICOM image header appropriate for use by FSL FEAT
+# - FEAT requires slice times in units of TRs, in range -0.5 to 0.5
+# - AFNI's dicom_hdr generates slice times in ms
+# - Point this script at the SECOND file in an fMRI series for correct multiband slice times
+#
+# AUTHOR : Mike Tyszka
+# PLACE  : Caltech
+# DATES  : 2014-05-20 JMT From scratch
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+if [ $# -lt 2 ]
+then
+  echo "USAGE : mkslicetimes <DICOM file> <TR ms>"
+  exit
+fi
+
+# Parse arguments
+dcm_file=$1
+TR_ms=$2
+
+# File names
+tmp=tmp.txt
+out=slice_times.txt
+
+# Use AFNI's dicom_hdr command to extract slice times in ms
+dicom_hdr -slice_times $dcm_file > $tmp
+
+# Use awk to strip preamble (: delimited) then loop over all fields, normalizing to TR and shifting center
+awk -F':' '{ print $2 }' $tmp | awk -v TR=$TR_ms -F' ' '{ for (i=1; i<=NF; i++) print $i/TR-0.5 }' > $out
+
+echo "Normalized slice times output to slice_times.txt"
+
+# Clean up
+rm -rf $tmp

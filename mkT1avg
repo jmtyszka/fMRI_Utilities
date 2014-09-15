@@ -13,28 +13,39 @@
 # DATES : 01/09/2009 JMT From scratch
 
 # First grab the output file stub
-stub=$1
+outfile=$1
 
 # Lose arg 1 from $@
 shift
 
-# Loop over all remaining arguments
+# Init image counter
 nim=0
 
+# Init converted T1 file list
+T1_files=""
+
+# Loop over provided DICOM directories
 for dcm_dir in "$@"
 do
-  out_file=${dcm_dir}.nii.gz
-  echo "Converting $dcm_dir to $out_file"
+  echo "Converting $dcm_dir"
+  nii=`dc2nii $dcm_dir`
   let "nim+=1"
-  dc2nii $dcm_dir $out_file
+  T1_files+="${nii} "
 done
 
 echo "Processed $nim images"
 
 # Now flirt average the converted images
-echo "flirt_average $nim $@ $stub"
-flirt_average $nim $@ $stub -v
+echo "flirt_average $nim ${T1_files} ${outfile}"
+flirt_average $nim ${T1_files} ${outfile} -dof 6
 
-# Delete intermediate images
-echo "Deleting intermediate images"
-imrm $@
+# Reorient result to MNI-ish frame
+echo "Reorienting to MNI-ish frame"
+fslreorient2std ${outfile} ${outfile}
+
+# Cleanup
+echo "Cleaning up"
+for dcm_dir in "$@"
+do
+  rm -rf ${dcm_dir}/*.nii.gz ${dcm_dir}/*.mat
+done
