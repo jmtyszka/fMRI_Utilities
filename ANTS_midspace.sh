@@ -9,11 +9,4 @@
 # Get command line args
 image_list=$@
 
-# First pass affine
-ANTS_buildtemplateparallel.sh -d 3 -m 1x0x0 -o AFFINE_ ${image_list}
-
-# Second pass defeomorphic
-ANTS_buildtemplateparallel.sh -d 3 -z AFFINE_template.nii.gz -o MIDSPACE_ ${image_list}
-
-# Clean up
-# rm -rf ants* tmp* AFFINE* GR*
+ANTS_buildtemplateparallel.sh -d 3 -o MIDSPACE_ ${image_list}

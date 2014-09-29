@@ -15,26 +15,26 @@
 # PLACE : Caltech
 # DATES : 12/02/2008 JMT From scratch
 #         05/11/2009 JMT Switch to single directory argument
+#         09/29/2014 JMT Add command line TE argument
 #
-# Copyright 2008,2009 California Institute of Technology. All rights reserved.
+# Copyright 2014 California Institute of Technology. All rights reserved.
 
-# Gradient echo time difference in ms
-# This is standard for most Adolphslabs protocols but should be checked
-TE=2.46
-
-if [ $# -ne 3 ]
+if [ $# -ne 4 ]
 then
-  echo "USAGE: mkfmap <mag directory> <phase directory> <output directory>"
+  echo "USAGE   : mkfmap <mag directory> <phase directory> <output directory> <echo time difference in ms>"
+  echo "EXAMPLE : mkfmap Fieldmap_3 Fieldmap_4 Fieldmap 2.46"
   exit
 fi
 
 magdir=$1
 phidir=$2
 outdir=$3
+dTE=$4
 
-echo Magnitude directory : $magdir
-echo Phase directory     : $phidir
-echo Output directory    : $outdir
+echo Magnitude directory  : $magdir
+echo Phase directory      : $phidir
+echo Output directory     : $outdir
+echo Echo time difference : $dTE
 
 # Convert dual-echo GRE DICOM series to Nifti using mri_convert
 echo Converting magnitude images
@@ -59,7 +59,7 @@ echo Phase unwrapping fieldmap
 prelude -a ${outdir}/fmap_mag -p ${outdir}/phi_rad -o ${outdir}/phi_rad_uw
 
 # Scale unwrapped field map to rad/s
-fslmaths ${outdir}/phi_rad_uw -mul 1000 -div $TE ${outdir}/fmap -odt float
+fslmaths ${outdir}/phi_rad_uw -mul 1000 -div $dTE ${outdir}/fmap -odt float
 
 # Regularize fieldmap
 echo Regularizing fieldmap
