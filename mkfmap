@@ -19,26 +19,35 @@
 #
 # Copyright 2014 California Institute of Technology. All rights reserved.
 
-if [ $# -ne 4 ]
+if [ $# -ne 2 ]
 then
-  echo "USAGE   : mkfmap <mag directory> <phase directory> <output directory> <echo time difference in ms>"
-  echo "EXAMPLE : mkfmap Fieldmap_3 Fieldmap_4 Fieldmap 2.46"
+  echo "USAGE   : mkfmap <mag directory> <phase directory>"
+  echo "EXAMPLE : mkfmap Fieldmap_3 Fieldmap_4"
   exit
 fi
 
 magdir=$1
 phidir=$2
-outdir=$3
-dTE=$4
+
+# Place output in current directory
+outdir="."
 
 echo Magnitude directory  : $magdir
 echo Phase directory      : $phidir
 echo Output directory     : $outdir
-echo Echo time difference : $dTE
+
+# Get TE1,2 from first DICOM in mag directory
+echo "Looking for GRE echo times in DICOM header"
+M1=`ls ${magdir}/*-0001.dcm | head -n 1`
+M2=`ls ${magdir}/*-0002.dcm | head -n 1`
+TE1=`mri_probedicom --i ${M1} --t 0018 0081`
+TE2=`mri_probedicom --i ${M2} --t 0018 0081`
+dTE=`bc -l <<< "${TE2} - ${TE1}"`
+echo "TE1: ${TE1}  TE2: ${TE2}  dTE: ${dTE}"
 
 # Convert dual-echo GRE DICOM series to Nifti using mri_convert
 echo Converting magnitude images
-mri_convert $1 -i `ls ${magdir}/* | tail -n 1` -o ${outdir}/fmap_mag.nii.gz
+mri_convert -i ${M1} -o ${outdir}/fmap_mag.nii.gz
 
 # Average first and 2nd echoes
 echo Averaging first and second echo
