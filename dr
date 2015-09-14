@@ -1,0 +1,13 @@
+#!/bin/bash
+# Dual regression test-retest of two-session rsBOLD in Conte MB data
+#
+# AUTHORS : Mike Tyszka
+# PLACE   : Caltech
+# DATES   : 2015-09-10 JMT From scratch
+#
+# Copyright 2015 Califoria Institute of Technology
+# All rights reserved
+
+GICA_DIR=../Reliability.gica
+
+dual_regression

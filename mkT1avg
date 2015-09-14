@@ -27,7 +27,7 @@ T1_files=""
 # Loop over provided DICOM directories
 for dcm_dir in "$@"
 do
-  echo "Converting $dcm_dir"
+  echo "Converting $dcm_dir from DICOM to Nifti-1"
   nii=`dc2nii $dcm_dir`
   let "nim+=1"
   T1_files+="${nii} "

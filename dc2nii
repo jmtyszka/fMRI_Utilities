@@ -1,0 +1,43 @@
+#!/bin/bash
+# DICOM to Nifti-1 conversion script
+#
+# USAGE   : dc2nii <DICOM Directory>
+#
+# Output Nifti-1 file is created in the DICOM Directory
+# bval and bvec files are generated in the DICOM Directory
+# if a DWI sequence is detected.
+#
+# RETURNS : filename of created Nifti-1 image volume
+#
+# AUTHOR : Mike Tyszka
+# PLACE  : Caltech
+# DATES  : 03/26/2013 JMT From scratch
+#          05/20/2014 JMT Leave converted file(s) in DICOM directory
+#                         but return file path
+
+if [ $# -lt 1 ]; then
+  exit
+fi
+
+# Parse arguments
+dicom_dir=$1
+
+if [ ! -d ${dicom_dir} ]; then
+  echo "${dicom_dir} is not a directory - exiting"
+  exit
+fi
+
+# Remove any trailing /
+dicom_dir=${dicom_dir%/}
+
+# Construct output Nifti filename
+nii_out=${dicom_dir}/data.nii.gz
+
+# Find first DICOM file in DICOM directory
+first_dicom=`ls -1t ${dicom_dir}/* | head -n 1` 
+
+# Convert using Freesurfer's mri_convert (silently)
+mri_convert ${first_dicom} ${nii_out} &> /dev/null 
+
+# Return full path to converted Nifti file
+realpath ${nii_out}

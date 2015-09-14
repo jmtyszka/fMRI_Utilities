@@ -19,18 +19,16 @@
 #
 # Copyright 2014 California Institute of Technology. All rights reserved.
 
-if [ $# -ne 2 ]
+if [ $# -ne 3 ]
 then
-  echo "USAGE   : mkfmap <mag directory> <phase directory>"
-  echo "EXAMPLE : mkfmap Fieldmap_3 Fieldmap_4"
+  echo "USAGE   : mkfmap <mag directory> <phase directory> <output directory>"
+  echo "EXAMPLE : mkfmap Fieldmap_3 Fieldmap_4i ./fmaps"
   exit
 fi
 
 magdir=$1
 phidir=$2
-
-# Place output in current directory
-outdir="."
+outdir=$3
 
 echo Magnitude directory  : $magdir
 echo Phase directory      : $phidir
