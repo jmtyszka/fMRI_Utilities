@@ -50,7 +50,7 @@ import sys
 import argparse
 import nibabel as nib
 import numpy as np
-from scipy import stats
+import matplotlib.pyplot as plt
 
 
 def main():
@@ -67,15 +67,20 @@ def main():
 
     # Output ICC directory
     icc_dir = args.output
+    ic_files = args.ic_files
 
     if args.mask:
         mask_nii = nib.load(args.mask)
         mask = mask_nii.get_data().astype(bool)
     
+    # Number of repeats (from command line)
     d = int(args.reps)
     
+    # Number of ICs (from command line file list)
+    nic = np.shape(ic_files)[0]
+    
     # Loop over all stage 2 4D IC files
-    for ic, ic_fname in enumerate(args.ic_files):
+    for ic, ic_fname in enumerate(ic_files):
         
         print('\nAnalyzing ' + ic_fname)
         
@@ -107,24 +112,23 @@ def main():
         Mp = np.mean(Y, axis=1)
         
         # Mean over repetitions and participants (nvox)
-        # Collapse 3rd then 2nd dimensions in that order
+        # Collapse 3rd (participant) then 2nd (rep) dimensions in that order
         print('  Mean over repetitions and participants')
         Mrp = np.mean(np.mean(Y, axis=2), axis=1)
 
         # Sum of squares over participants (nvox)
         print('  Sum of squares over participants (SSp)')
-        Mrp_i = np.tile(np.reshape(Mrp, [nvox, 1]), [1, n])
-        SSp = d * np.sum((Mr - Mrp_i)**2.0, axis=1)
-    
-        # Reshape and tile the Y_bars to the same size as Y
-        Mr_ij = np.tile(np.reshape(Mr, [nvox, n, 1]), [1, 1, d])
-        Mp_ij = np.tile(np.reshape(Mp, [nvox, 1, d]), [1, n, 1])
-        Mrp_ij = np.tile(np.reshape(Mrp, [nvox, 1, 1]), [1, n, d])
-
+        SSp = np.zeros([nvox])
+        for i in range(0,n):
+            SSp[:] += (Mr[:,i] - Mrp)**2.0
+        SSp *= float(d)
+            
         # Sum of square errors (nvox)
-        # Collapse 3rd then 2nd dimensions in that order
         print('  Sum of squares errors (SSe)')
-        SSe = np.sum(np.sum((Y - Mr_ij - Mp_ij + Mrp_ij)**2.0, axis=2), axis=1)
+        SSe = np.zeros([nvox])
+        for i in range(0,n):
+            for j in range(0,d):
+                SSe[:] += (Y[:,i,j] - Mr[:,i] - Mp[:,j] + Mrp)**2.0
         
         # Mean square over participants (nvox)
         MSp = SSp / (n - 1.0)
@@ -136,6 +140,10 @@ def main():
         print('  Intraclass Correlation Coefficient (ICC_c)')
         ICC = (MSp - MSe) / (MSp + (d - 1.0) * MSe)
         
+        # Replace NaNs and negative ICCs with 0.0
+        ICC[np.where(np.isnan(ICC))] = 0.0
+        ICC[np.where(ICC < 0.0)] = 0.0
+        
         # Write results to output directory
         suffix = '_%04d.nii.gz' % ic
         print('  Saving ICC'+suffix)
@@ -146,13 +154,30 @@ def main():
         # Masked statistics
         if args.mask:
             
-            ICC_mask = ICC[np.reshape(mask,[nvox])]
-
-            icc_mode = stats.mode(ICC_mask).mode
-            icc_mean = np.nanmean(ICC_mask)
-            icc_med = np.nanmedian(ICC_mask)
+            # Setup mask and masked ICC array on first pass
+            if ic == 0:
+                mask_vox = np.reshape(mask,[nvox])         
+                nmask = mask_vox.sum()
+                ICC_mask = np.zeros([nmask, nic])
             
-            print('  Mode : %0.3f  Mean : %0.3f  Median %0.3f' % (icc_mode, icc_mean, icc_med))
+            ICC_mask[:,ic] = ICC[mask_vox]
+
+
+    # Masked data plots
+    if args.mask:
+
+        pos = np.arange(0,nic)+1
+
+        # Violin plots of masked ICC distributions for each IC
+        bp = plt.boxplot(ICC_mask, labels=pos, showfliers=False, )
+
+        plt.setp(bp['boxes'], color='black')
+        plt.setp(bp['whiskers'], color='black')
+        plt.setp(bp['fliers'], color='red', marker='.')
+        
+        
+        
+        plt.show()
 
 
     # Clean exit
