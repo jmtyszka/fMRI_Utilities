@@ -20,6 +20,7 @@ Mike Tyszka, Caltech Brain Imaging Center
 Dates
 ----
 2015-09-14 JMT From scratch
+2015-09-19 JMT Export sample of masked ICC results for R plotting
 
 License
 ----
@@ -50,7 +51,7 @@ import sys
 import argparse
 import nibabel as nib
 import numpy as np
-import matplotlib.pyplot as plt
+import random
 
 
 def main():
@@ -162,23 +163,20 @@ def main():
             
             ICC_mask[:,ic] = ICC[mask_vox]
 
-
-    # Masked data plots
+    # Sample 10% of voxels in ICC_mask and export
     if args.mask:
-
-        pos = np.arange(0,nic)+1
-
-        # Violin plots of masked ICC distributions for each IC
-        bp = plt.boxplot(ICC_mask, labels=pos, showfliers=False, )
-
-        plt.setp(bp['boxes'], color='black')
-        plt.setp(bp['whiskers'], color='black')
-        plt.setp(bp['fliers'], color='red', marker='.')
         
+        # Random mask voxel indices
+        nsamp = int(nmask/10.0)
+        print('Sampling %d voxels from mask' % nsamp)
+        mask_samp = random.sample(range(0, nmask), nsamp)
         
+        # Extract sample from masked ICC array
+        ICC_samp = ICC_mask[mask_samp,:]
         
-        plt.show()
-
+        # Export array to CSV vile
+        csv_fname = os.path.join(icc_dir,'ICC_mask_%d.csv' % nsamp)
+        np.savetxt(csv_fname, ICC_samp, delimiter=',')
 
     # Clean exit
     sys.exit(0)
