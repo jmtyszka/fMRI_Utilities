@@ -1,8 +1,15 @@
 #!/opt/local/bin/python
 """
-Calculate per-voxel ICC_c from TC-GICA dual regression results
+Calculate per-voxel ICC from TC-GICA dual regression results
+Implements ICC_c ie ICC(3,1) from Zhuo NIMG 2010
 
 Assumes intra-subject repeats are the inner loop in the 4D IC data
+
+References
+----
+Zuo, X.-N., Kelly, C., Adelstein, J.S., Klein, D.F., Castellanos, F.X., Milham, M.P., 2010.
+Reliable intrinsic connectivity networks: Test-retest evaluation using ICA and dual regression approach.
+NeuroImage 49, 2163–2177. doi:10.1016/j.neuroimage.2009.10.080
 
 Usage
 ----
