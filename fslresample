@@ -1,0 +1,18 @@
+#!/bin/bash
+# Resample Nifti image to requested isotropic voxel size in mm
+#
+# AUTHOR : Mike Tyszka
+# PLACE  : Caltech
+# DATES  : 2015-09-21 JMT From scratch
+
+if [ $# -lt 2 ]; then
+  echo "USAGE : fslresample <Nifti Image> <isotropic voxel size in mm>
+  echo "        fslresample T1.nii.gz 3.0
+  exit
+fi
+
+# File stub
+out=${1%%.nii.gz}_$2
+
+# Sinc resample using FLIRT
+flirt -in $1 -out $out -ref $1 -init $FSLDIR/etc/flirtsch/ident.mat -applyisoxfm $2 -interp sinc

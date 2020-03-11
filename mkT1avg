@@ -1,5 +1,4 @@
 #!/bin/bash
-#
 # Use FSL and Freesurfer commands to 1. convert DICOM volumes to Nifti, then rigid body coregister volumes and average
 # This script should be run in the directory containing the two or more DICOM T1 scan directories
 #
@@ -11,6 +10,11 @@
 # AUTHOR: Mike Tyszka
 # PLACE : Caltech
 # DATES : 01/09/2009 JMT From scratch
+
+if [ $# -lt 1 ]; then
+  echo "USAGE: mkT1avg <Output Prefix> <DICOM directory list>"
+  exit
+fi
 
 # First grab the output file stub
 outfile=$1

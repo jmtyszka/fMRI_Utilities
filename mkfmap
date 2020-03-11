@@ -63,12 +63,12 @@ fslmaths ${outdir}/phi -sub 2048 -mul 3.1415926 -div 2048 ${outdir}/phi_rad -odt
 
 # Run PRELUDE phase unwrapping with magnitude trust region
 echo Phase unwrapping fieldmap
-prelude -a ${outdir}/fmap_mag -p ${outdir}/phi_rad -o ${outdir}/phi_rad_uw
+prelude -a ${outdir}/fmap_mag -p ${outdir}/phi_rad -o ${outdir}/phi_rad_uw -f
 
 # Scale unwrapped field map to rad/s
 fslmaths ${outdir}/phi_rad_uw -mul 1000 -div $dTE ${outdir}/fmap -odt float
 
-# Regularize fieldmap
+# Regularize fieldmap (median then smooth)
 echo Regularizing fieldmap
 fugue --loadfmap=${outdir}/fmap -m --savefmap=${outdir}/fmap
 fugue --loadfmap=${outdir}/fmap -s 1 --savefmap=${outdir}/fmap

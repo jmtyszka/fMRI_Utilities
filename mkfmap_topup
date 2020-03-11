@@ -1,0 +1,61 @@
+#!/bin/bash
+# Run FSL TOPUP on a blip reversed pair of EPI reference images (GE or SE)
+#
+# AUTHOR : Mike Tyszka
+# PLACE  : Caltech
+# DATES  : 2015-12-11 JMT From scratch
+
+if [ $# -lt 3 ]; then
+	echo "USAGE : mkfmap_topup <Positive EPI DICOM Directory> <Negative EPI DICOM Directory> <Output Directory>"
+	exit
+fi
+
+pos_dir=$1
+neg_dir=$2
+out_dir=$3
+
+if [ ! -d $pos_dir ]; then
+	echo "$pos_dir does not exist - exiting"
+	exit
+fi
+
+
+if [ ! -d $neg_dir ]; then
+	echo "$neg_dir does not exist - exiting"
+	exit
+fi
+
+# Create output directory
+mkdir -p $out_dir
+
+# Locate first image in positive and negative DICOM directories
+pos1=`ls -1 $pos_dir/* | head -n 1`
+neg1=`ls -1 $neg_dir/* | head -n 1`
+
+# Get relevant fields from DICOM headers
+ETL=`dcmdump +P 0019,1028 $pos1 | awk '{ print 1.0/$3 }'`
+echo "  EPI echo train duration : $ETL s"
+
+# Intermediate files in output directory
+pos=${out_dir}/pos.nii.gz
+neg=${out_dir}/neg.nii.gz
+both=${out_dir}/both.nii.gz
+both_corr=${out_dir}/both_corr.nii.gz
+pars=${out_dir}/topup_pars.txt
+fmap=${out_dir}/fmap_Hz.nii.gz
+prefix=${out_dir}/topup
+
+# Construct TOPUP parameter text file
+echo "  Creating TOPUP parameter file"
+printf "0 1 0 $ETL\n0 -1 0 $ETL" > $pars
+
+# Convert reference pair from DICOM to Nifti
+# Use Freesurfers mri_convert command and merge into single 4D volume
+echo "  Converting from DICOM to Nifti"
+mri_convert -i $pos1 $pos > /dev/null 2>&1
+mri_convert -i $neg1 $neg > /dev/null 2>&1
+fslmerge -t $both $pos $neg
+
+# Run TOPUP
+echo "  Running TOPUP on reference pair"
+topup --imain=$both --datain=$pars --out=$prefix --fout=$fmap --iout=$both_corr
